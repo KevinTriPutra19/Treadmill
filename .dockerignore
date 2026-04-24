@@ -1,0 +1,10 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+uploads/history/*
+uploads/debug/*
+uploads/latest*.jpg
+uploads/latest_result.json
+uploads/ocr_status.json
