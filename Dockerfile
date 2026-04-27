@@ -16,9 +16,12 @@ RUN apt-get update \
 WORKDIR /var/www/html
 
 COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
+RUN pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements.txt
 
-RUN mkdir -p /var/www/html/uploads/debug /var/www/html/uploads/history \
-    && chmod -R 0777 /var/www/html/uploads
+COPY . /var/www/html/
+
+RUN mkdir -p /var/www/html/uploads/debug /var/www/html/uploads/history /var/www/.EasyOCR \
+    && chown -R www-data:www-data /var/www/html/uploads /var/www/.EasyOCR \
+    && chmod -R 0777 /var/www/html/uploads /var/www/.EasyOCR
 
 EXPOSE 80
