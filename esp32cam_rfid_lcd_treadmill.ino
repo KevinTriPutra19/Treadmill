@@ -16,9 +16,10 @@
 
   IMPORTANT
   - Sketch ini sengaja tidak memakai ArduinoJson supaya tidak perlu install library tambahan.
-  - BASE_URL isi dengan alamat web kamu.
-  - Jika masih lokal, pakai IP PC / server lokal.
-  - Jika sudah hosting, pakai domain Hostinger.
+  - BASE_URL isi dengan alamat web aplikasi yang benar.
+  - Jika aplikasi dibuka di root server, pakai contoh: http://76.13.23.138:4001
+  - Jika aplikasi dipasang di subfolder, pakai contoh: http://76.13.23.138:4001/treadmill
+  - RFID hanya mengirim UID; nama user diambil dari database atau dibuat default oleh server.
 
   WIRING NOTE
   RFID sesuai gambar kamu:
@@ -41,6 +42,7 @@
 */
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <SPI.h>
 #include <MFRC522.h>
@@ -51,7 +53,9 @@
 // =========================
 const char* WIFI_SSID = "YOUR_WIFI_NAME";
 const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
-const char* BASE_URL = "http://10.23.236.68/treadmill";
+const char* BASE_URL = "http://76.13.23.138:4001";
+
+WiFiClientSecure secureClient;
 
 // =========================
 // RFID RC522
@@ -235,13 +239,27 @@ String readRfidUid() {
   return uid;
 }
 
+String resolveRfidName(const String& uid) {
+  (void) uid;
+  return "";
+}
+
 // =========================
 // HTTP helpers
 // =========================
+bool beginHttpRequest(HTTPClient& http, const String& url) {
+  if (url.startsWith("https://")) {
+    secureClient.setInsecure();
+    return http.begin(secureClient, url);
+  }
+
+  return http.begin(url);
+}
+
 bool postJson(const String& url, const String& body, String& response, int& code) {
   if (WiFi.status() != WL_CONNECTED) return false;
   HTTPClient http;
-  http.begin(url);
+  if (!beginHttpRequest(http, url)) return false;
   http.addHeader("Content-Type", "application/json");
   code = http.POST(body);
   response = http.getString();
@@ -252,7 +270,7 @@ bool postJson(const String& url, const String& body, String& response, int& code
 bool getText(const String& url, String& response, int& code) {
   if (WiFi.status() != WL_CONNECTED) return false;
   HTTPClient http;
-  http.begin(url);
+  if (!beginHttpRequest(http, url)) return false;
   code = http.GET();
   response = http.getString();
   http.end();
@@ -311,7 +329,10 @@ bool uploadCapture(int photoIndex, bool runOcr) {
 
   HTTPClient http;
   String url = String(BASE_URL) + "/endpoints/upload.php?photo_index=" + String(photoIndex) + "&run_ocr=" + String(runOcr ? 1 : 0);
-  http.begin(url);
+  if (!beginHttpRequest(http, url)) {
+    esp_camera_fb_return(fb);
+    return false;
+  }
   http.addHeader("Content-Type", "application/octet-stream");
   int code = http.POST(fb->buf, fb->len);
   String response = http.getString();
@@ -556,7 +577,7 @@ void loop() {
 
   String uid = readRfidUid();
   if (uid.length() > 0) {
-    processTap(uid, "Nama User");
+    processTap(uid, resolveRfidName(uid));
   }
 
   if (millis() - lastStatePollMs >= 5000) {

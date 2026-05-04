@@ -71,8 +71,23 @@ function get_member_by_uid($conn, $uid)
 function upsert_member($conn, $uid, $fullName)
 {
     $fullName = trim((string) $fullName);
-    if ($fullName === '') {
+    $isPlaceholderName = $fullName === '' || strcasecmp($fullName, 'Nama User') === 0;
+    if ($isPlaceholderName) {
         $fullName = 'User ' . substr($uid, 0, 6);
+    }
+
+    $existing = get_member_by_uid($conn, $uid);
+    if ($existing) {
+        $currentName = trim((string) ($existing['full_name'] ?? ''));
+        if ($isPlaceholderName || $currentName === $fullName) {
+            return;
+        }
+
+        $stmt = $conn->prepare("UPDATE members SET full_name = ? WHERE uid = ?");
+        $stmt->bind_param('ss', $fullName, $uid);
+        $stmt->execute();
+        $stmt->close();
+        return;
     }
 
     $stmt = $conn->prepare("INSERT INTO members (uid, full_name) VALUES (?, ?) ON DUPLICATE KEY UPDATE full_name = VALUES(full_name)");

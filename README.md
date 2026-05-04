@@ -111,26 +111,42 @@ Jika OCR tidak jalan:
 2. Pastikan file gambar sudah masuk ke folder `uploads/`
 3. Pastikan dua foto tersedia (`latest_time.jpg` dan `latest_distance.jpg`) sebelum OCR diproses
 
-## Deployment server
+## Deployment VPS / Hosting
 
-Untuk deploy ke server:
+Kalau kamu pindah ke VPS, ada 2 pilihan:
 
-1. Install Docker + Compose di server.
-2. Upload source code project.
-3. Jalankan `docker compose up -d --build`.
-4. Buka port `8080` (app) dan opsional `8081` (phpMyAdmin).
-5. Jika memakai reverse proxy (Nginx/Traefik), arahkan domain ke service app port 8080.
+1. Tetap pakai Docker seperti panduan di atas.
+2. Jalankan manual dengan Nginx/Apache + PHP 8.2 + MySQL + Python 3.
+
+Langkah yang perlu disesuaikan:
+
+1. Upload source code ke folder web root VPS, lalu pastikan permission `uploads/` bisa ditulis.
+2. Set environment database di server: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`.
+3. Kalau OCR dipakai, set juga `PYTHON_BIN` dan `OCR_SCRIPT` bila lokasi Python atau script berbeda dari default.
+4. Ubah `BASE_URL` di [esp32cam_rfid_lcd_treadmill.ino](esp32cam_rfid_lcd_treadmill.ino#L54) ke alamat web yang benar. Kalau app ada di root server, pakai `http://76.13.23.138:4001`; kalau app ada di subfolder, pakai `http://76.13.23.138:4001/treadmill`.
+5. Kalau pakai HTTPS di VPS, sketch ESP32 sudah disiapkan untuk `WiFiClientSecure`.
+6. Kalau yang kamu punya masih alamat IP seperti `http://76.13.23.138:4001/index.php`, itu boleh untuk testing, tapi untuk ESP32 sebaiknya pakai base URL server-nya, misalnya `http://76.13.23.138:4001` atau `http://76.13.23.138:4001/treadmill`, bukan `index.php` langsung.
+7. Untuk RFID, cukup kirim UID dari sketch. Nama user akan diambil dari tabel `members` di database; kalau UID baru, server akan bikin nama default otomatis.
+8. WiFi di ESP harus yang dipakai ESP untuk konek ke internet. Tidak harus sama dengan WiFi di server/VPS. Yang penting ESP bisa menjangkau alamat VPS itu lewat jaringan yang dipakai.
+
+Contoh environment untuk PHP-FPM / Apache:
+
+```bash
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=treadmill_user
+DB_PASS=secret
+DB_NAME=treadmill_db
+PYTHON_BIN=/usr/bin/python3
+OCR_SCRIPT=/var/www/treadmill/scripts/read_time.py
+```
 
 ## Keamanan minimum (production)
 
-Sebelum production, ubah nilai berikut di `docker-compose.yml`:
+Sebelum production, lakukan ini:
 
-- Password root MySQL
-- User/password database aplikasi
-- Matikan phpMyAdmin jika tidak diperlukan publik
-
-Disarankan juga:
-
-- Gunakan backup volume database berkala
-- Letakkan aplikasi di belakang reverse proxy HTTPS
-- Batasi akses endpoint device bila memungkinkan
+1. Ganti password database dan jangan pakai kredensial default.
+2. Pakai HTTPS di domain VPS.
+3. Batasi akses endpoint device jika memungkinkan.
+4. Pastikan folder `uploads/` tidak bisa dieksekusi langsung sebagai script.
+5. Kalau OCR tidak dibutuhkan, nonaktifkan jalur eksekusi background Python di server.

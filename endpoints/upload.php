@@ -44,6 +44,8 @@ function resolve_python_command(array $candidates)
 $photoIndex = isset($_GET['photo_index']) ? (int) $_GET['photo_index'] : 1;
 $photoIndex = max(1, min(3, $photoIndex));
 $runOcr = !isset($_GET['run_ocr']) || $_GET['run_ocr'] !== '0';
+$pythonEnv = getenv('PYTHON_BIN') ?: '';
+$ocrScriptEnv = getenv('OCR_SCRIPT') ?: '';
 $fileName = 'latest.jpg';
 if ($photoIndex === 1) {
     $fileName = 'latest_time.jpg';
@@ -82,6 +84,9 @@ if ($imageData) {
     // Jalankan OCR di background SETELAH respons terkirim
     $pythonExe = null;
     $pythonCandidates = [];
+    if ($pythonEnv !== '') {
+        $pythonCandidates[] = quote_shell_arg_cross_platform($pythonEnv);
+    }
     foreach ([
         __DIR__ . "/../.venv/Scripts/python.exe",
         __DIR__ . "/../.venv/bin/python",
@@ -99,7 +104,7 @@ if ($imageData) {
     $pythonCandidates[] = 'python';
 
     $pythonExe = resolve_python_command($pythonCandidates);
-    $pythonScript = realpath(__DIR__ . "/../scripts/read_time.py");
+    $pythonScript = $ocrScriptEnv !== '' ? realpath($ocrScriptEnv) : realpath(__DIR__ . "/../scripts/read_time.py");
 
     if (!$runOcr) {
         write_ocr_status($uploadDir, false, 'Menunggu foto kedua');
